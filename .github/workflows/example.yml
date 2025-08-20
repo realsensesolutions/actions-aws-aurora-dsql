@@ -1,0 +1,53 @@
+name: Example - Create Aurora DSQL Cluster
+
+on:
+  push:
+    branches:
+      - main
+env: 
+  dsql_cluster_name: aurora-dsql-demo
+
+jobs:
+  create-dsql-cluster:
+    permissions:
+      id-token: write # Required for AWS authentication
+      contents: read
+      
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-region: us-east-1
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        role-session-name: ${{ github.actor }}
+    
+    - name: Setup Terraform Backend
+      uses: alonch/actions-aws-backend-setup@main
+      with: 
+        instance: ${{ env.dsql_cluster_name }}
+
+    - name: Create Aurora DSQL Cluster
+      uses: realsensesolutions/actions-aws-aurora-dsql@main
+      id: dsql
+      with:
+        name: ${{ env.dsql_cluster_name }}
+        action: apply
+        deletion_protection_enabled: 'false'  # Set to false for demo purposes
+        enable_vpc_endpoint: 'true'
+        enable_kms_encryption: 'true'
+        create_iam_role: 'true'
+        # allowed_cidr_blocks: '10.0.0.0/8,172.16.0.0/12,192.168.0.0/16'
+    
+    - name: Display outputs
+      run: |
+        echo "DSQL Cluster ARN: ${{ steps.dsql.outputs.cluster_arn }}"
+        echo "DSQL Cluster Endpoint: ${{ steps.dsql.outputs.cluster_endpoint }}"
+        echo "VPC Endpoint ID: ${{ steps.dsql.outputs.vpc_endpoint_id }}"
+        echo "KMS Key ARN: ${{ steps.dsql.outputs.kms_key_arn }}"
+        echo "IAM Role ARN: ${{ steps.dsql.outputs.iam_role_arn }}"
+        echo "Security Group ID: ${{ steps.dsql.outputs.security_group_id }}"

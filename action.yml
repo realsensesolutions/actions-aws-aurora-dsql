@@ -1,0 +1,161 @@
+name: 'AWS Aurora DSQL'
+description: 'Creates an AWS Aurora DSQL serverless, distributed SQL database using Terraform with backend state management'
+author: 'realsensesolutions'
+
+inputs:
+  name:
+    description: 'Base name for the Aurora DSQL cluster'
+    required: true
+  action:
+    description: 'Desired outcome: apply, plan or destroy'
+    required: false
+    default: 'apply'
+  deletion_protection_enabled:
+    description: 'Enable deletion protection for the DSQL cluster'
+    required: false
+    default: 'true'
+  vpc_id:
+    description: 'VPC ID where the VPC endpoint will be created. If not provided, uses default VPC'
+    required: false
+  subnet_ids:
+    description: 'Comma-separated list of subnet IDs for the VPC endpoint. If not provided, uses all subnets in the VPC'
+    required: false
+  enable_vpc_endpoint:
+    description: 'Enable VPC endpoint for private connectivity'
+    required: false
+    default: 'true'
+  enable_kms_encryption:
+    description: 'Enable KMS encryption for the DSQL cluster'
+    required: false
+    default: 'true'
+  create_iam_role:
+    description: 'Create IAM role for DSQL cluster access'
+    required: false
+    default: 'true'
+  allowed_cidr_blocks:
+    description: 'Comma-separated list of CIDR blocks allowed to connect to DSQL cluster'
+    required: false
+    default: '10.0.0.0/8,172.16.0.0/12,192.168.0.0/16'
+
+outputs:
+  cluster_arn:
+    description: 'ARN of the Aurora DSQL cluster'
+    value: ${{ steps.create-dsql.outputs.cluster_arn }}
+  cluster_endpoint:
+    description: 'Endpoint of the Aurora DSQL cluster'
+    value: ${{ steps.create-dsql.outputs.cluster_endpoint }}
+  vpc_endpoint_id:
+    description: 'ID of the VPC endpoint (if created)'
+    value: ${{ steps.create-dsql.outputs.vpc_endpoint_id }}
+  vpc_endpoint_dns_name:
+    description: 'DNS name of the VPC endpoint (if created)'
+    value: ${{ steps.create-dsql.outputs.vpc_endpoint_dns_name }}
+  kms_key_arn:
+    description: 'ARN of the KMS key used for encryption (if created)'
+    value: ${{ steps.create-dsql.outputs.kms_key_arn }}
+  iam_role_arn:
+    description: 'ARN of the IAM role for DSQL access (if created)'
+    value: ${{ steps.create-dsql.outputs.iam_role_arn }}
+  security_group_id:
+    description: 'ID of the security group for VPC endpoint'
+    value: ${{ steps.create-dsql.outputs.security_group_id }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+
+    - name: Initialize Terraform
+      working-directory: ${{ github.action_path }}
+      run: |                
+        # Initialize Terraform with backend configuration
+        terraform init \
+          -backend-config="bucket=${{ env.TF_BACKEND_s3 }}" \
+          -backend-config="key=actions-aws-aurora-dsql/${{ inputs.name }}" \
+          -backend-config="dynamodb_table=${{ env.TF_BACKEND_dynamodb }}"
+      shell: bash
+      env:
+        TF_VAR_cluster_name: ${{ inputs.name }}
+        TF_VAR_deletion_protection_enabled: ${{ inputs.deletion_protection_enabled }}
+        TF_VAR_vpc_id: ${{ inputs.vpc_id }}
+        TF_VAR_subnet_ids: ${{ inputs.subnet_ids }}
+        TF_VAR_enable_vpc_endpoint: ${{ inputs.enable_vpc_endpoint }}
+        TF_VAR_enable_kms_encryption: ${{ inputs.enable_kms_encryption }}
+        TF_VAR_create_iam_role: ${{ inputs.create_iam_role }}
+        TF_VAR_allowed_cidr_blocks: ${{ inputs.allowed_cidr_blocks }}
+
+    - name: Terraform Plan
+      if: inputs.action == 'plan'
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: |
+        terraform plan -lock-timeout=5m
+      env:
+        TF_VAR_cluster_name: ${{ inputs.name }}
+        TF_VAR_deletion_protection_enabled: ${{ inputs.deletion_protection_enabled }}
+        TF_VAR_vpc_id: ${{ inputs.vpc_id }}
+        TF_VAR_subnet_ids: ${{ inputs.subnet_ids }}
+        TF_VAR_enable_vpc_endpoint: ${{ inputs.enable_vpc_endpoint }}
+        TF_VAR_enable_kms_encryption: ${{ inputs.enable_kms_encryption }}
+        TF_VAR_create_iam_role: ${{ inputs.create_iam_role }}
+        TF_VAR_allowed_cidr_blocks: ${{ inputs.allowed_cidr_blocks }}
+
+    - name: Terraform Destroy
+      if: inputs.action == 'destroy'
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: |
+        terraform destroy -auto-approve -lock-timeout=5m
+      env:
+        TF_VAR_cluster_name: ${{ inputs.name }}
+        TF_VAR_deletion_protection_enabled: ${{ inputs.deletion_protection_enabled }}
+        TF_VAR_vpc_id: ${{ inputs.vpc_id }}
+        TF_VAR_subnet_ids: ${{ inputs.subnet_ids }}
+        TF_VAR_enable_vpc_endpoint: ${{ inputs.enable_vpc_endpoint }}
+        TF_VAR_enable_kms_encryption: ${{ inputs.enable_kms_encryption }}
+        TF_VAR_create_iam_role: ${{ inputs.create_iam_role }}
+        TF_VAR_allowed_cidr_blocks: ${{ inputs.allowed_cidr_blocks }}
+
+    - name: Create Aurora DSQL Cluster
+      id: create-dsql
+      if: inputs.action == 'apply'
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: |
+        # Plan and Apply
+        terraform plan -lock-timeout=5m
+        terraform apply -auto-approve -lock-timeout=5m
+        
+        # Get outputs
+        CLUSTER_ARN=$(terraform output -raw cluster_arn)
+        CLUSTER_ENDPOINT=$(terraform output -raw cluster_endpoint)
+        VPC_ENDPOINT_ID=$(terraform output -raw vpc_endpoint_id || echo "")
+        VPC_ENDPOINT_DNS_NAME=$(terraform output -raw vpc_endpoint_dns_name || echo "")
+        KMS_KEY_ARN=$(terraform output -raw kms_key_arn || echo "")
+        IAM_ROLE_ARN=$(terraform output -raw iam_role_arn || echo "")
+        SECURITY_GROUP_ID=$(terraform output -raw security_group_id || echo "")
+        
+        echo "cluster_arn=$CLUSTER_ARN" >> $GITHUB_OUTPUT
+        echo "cluster_endpoint=$CLUSTER_ENDPOINT" >> $GITHUB_OUTPUT
+        echo "vpc_endpoint_id=$VPC_ENDPOINT_ID" >> $GITHUB_OUTPUT
+        echo "vpc_endpoint_dns_name=$VPC_ENDPOINT_DNS_NAME" >> $GITHUB_OUTPUT
+        echo "kms_key_arn=$KMS_KEY_ARN" >> $GITHUB_OUTPUT
+        echo "iam_role_arn=$IAM_ROLE_ARN" >> $GITHUB_OUTPUT
+        echo "security_group_id=$SECURITY_GROUP_ID" >> $GITHUB_OUTPUT
+        
+        echo "Created Aurora DSQL cluster: $CLUSTER_ARN"
+        echo "Cluster endpoint: $CLUSTER_ENDPOINT"
+      env:
+        TF_VAR_cluster_name: ${{ inputs.name }}
+        TF_VAR_deletion_protection_enabled: ${{ inputs.deletion_protection_enabled }}
+        TF_VAR_vpc_id: ${{ inputs.vpc_id }}
+        TF_VAR_subnet_ids: ${{ inputs.subnet_ids }}
+        TF_VAR_enable_vpc_endpoint: ${{ inputs.enable_vpc_endpoint }}
+        TF_VAR_enable_kms_encryption: ${{ inputs.enable_kms_encryption }}
+        TF_VAR_create_iam_role: ${{ inputs.create_iam_role }}
+        TF_VAR_allowed_cidr_blocks: ${{ inputs.allowed_cidr_blocks }}
+
+branding:
+  icon: 'database'
+  color: 'purple'
