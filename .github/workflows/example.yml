@@ -36,7 +36,7 @@ jobs:
       id: dsql
       with:
         name: ${{ env.dsql_cluster_name }}
-        action: apply
+        action: destroy
         deletion_protection_enabled: 'false'  # Set to false for demo purposes
         enable_vpc_endpoint: 'true'
         enable_kms_encryption: 'true'
