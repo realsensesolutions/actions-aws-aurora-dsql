@@ -4,8 +4,8 @@ output "cluster_arn" {
 }
 
 output "cluster_endpoint" {
-  description = "Endpoint of the Aurora DSQL cluster"
-  value       = aws_dsql_cluster.main.endpoint
+  description = "Endpoint of the Aurora DSQL cluster (via VPC endpoint)"
+  value       = var.enable_vpc_endpoint ? aws_vpc_endpoint.dsql[0].dns_entry[0].dns_name : null
 }
 
 output "vpc_endpoint_id" {
@@ -15,7 +15,7 @@ output "vpc_endpoint_id" {
 
 output "vpc_endpoint_dns_name" {
   description = "DNS name of the VPC endpoint (if created)"
-  value       = var.enable_vpc_endpoint ? aws_vpc_endpoint.dsql[0].dns_name : null
+  value       = var.enable_vpc_endpoint ? aws_vpc_endpoint.dsql[0].dns_entry[0].dns_name : null
 }
 
 output "kms_key_arn" {
@@ -46,4 +46,14 @@ output "security_group_id" {
 output "security_group_arn" {
   description = "ARN of the security group for VPC endpoint (if created)"
   value       = var.enable_vpc_endpoint ? aws_security_group.dsql_vpc_endpoint[0].arn : null
+}
+
+output "cluster_id" {
+  description = "ID of the Aurora DSQL cluster"
+  value       = aws_dsql_cluster.main.id
+}
+
+output "vpc_endpoint_service_name" {
+  description = "VPC endpoint service name for the Aurora DSQL cluster"
+  value       = aws_dsql_cluster.main.vpc_endpoint_service_name
 }

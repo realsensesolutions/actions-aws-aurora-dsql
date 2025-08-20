@@ -46,8 +46,11 @@ jobs:
     - name: Display outputs
       run: |
         echo "DSQL Cluster ARN: ${{ steps.dsql.outputs.cluster_arn }}"
+        echo "DSQL Cluster ID: ${{ steps.dsql.outputs.cluster_id }}"
         echo "DSQL Cluster Endpoint: ${{ steps.dsql.outputs.cluster_endpoint }}"
+        echo "VPC Endpoint Service Name: ${{ steps.dsql.outputs.vpc_endpoint_service_name }}"
         echo "VPC Endpoint ID: ${{ steps.dsql.outputs.vpc_endpoint_id }}"
+        echo "VPC Endpoint DNS Name: ${{ steps.dsql.outputs.vpc_endpoint_dns_name }}"
         echo "KMS Key ARN: ${{ steps.dsql.outputs.kms_key_arn }}"
         echo "IAM Role ARN: ${{ steps.dsql.outputs.iam_role_arn }}"
         echo "Security Group ID: ${{ steps.dsql.outputs.security_group_id }}"

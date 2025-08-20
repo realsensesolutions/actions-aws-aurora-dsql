@@ -45,7 +45,9 @@ Aurora DSQL is available in select AWS regions. Verify that your target region s
 | Name | Description |
 |------|-------------|
 | `cluster_arn` | ARN of the Aurora DSQL cluster |
-| `cluster_endpoint` | Endpoint of the Aurora DSQL cluster |
+| `cluster_id` | ID of the Aurora DSQL cluster |
+| `cluster_endpoint` | Endpoint of the Aurora DSQL cluster (via VPC endpoint DNS name) |
+| `vpc_endpoint_service_name` | VPC endpoint service name for the Aurora DSQL cluster |
 | `vpc_endpoint_id` | ID of the VPC endpoint (if created) |
 | `vpc_endpoint_dns_name` | DNS name of the VPC endpoint (if created) |
 | `kms_key_arn` | ARN of the KMS key used for encryption (if created) |
@@ -104,15 +106,17 @@ jobs:
 
 ## Connecting to Aurora DSQL
 
-Once deployed, you can connect to your Aurora DSQL cluster using:
+Aurora DSQL connections work through VPC endpoints rather than direct cluster endpoints. Once deployed, you can connect using:
 
 1. **PostgreSQL-compatible clients** (DBeaver, psql, etc.)
 2. **Connection details**:
-   - Host: Use the `cluster_endpoint` output
+   - Host: Use the `cluster_endpoint` output (this is the VPC endpoint DNS name)
    - Port: 5432
    - Database: postgres
    - Username: admin
    - Password: Generate authentication token using AWS CLI
+
+**Note**: The `cluster_endpoint` output provides the VPC endpoint DNS name, which is the actual connection endpoint for Aurora DSQL. If VPC endpoint is disabled, the cluster_endpoint will be null as Aurora DSQL requires VPC endpoints for connectivity.
 
 ### Generate Authentication Token
 
