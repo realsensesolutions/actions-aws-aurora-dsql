@@ -48,10 +48,12 @@ output "security_group_arn" {
   value       = var.enable_vpc_endpoint ? aws_security_group.dsql_vpc_endpoint[0].arn : null
 }
 
-output "cluster_id" {
-  description = "ID of the Aurora DSQL cluster"
-  value       = aws_dsql_cluster.main.id
-}
+# Note: cluster_identifier attribute availability needs verification
+# Uncomment once correct attribute name is confirmed
+# output "cluster_identifier" {
+#   description = "Identifier of the Aurora DSQL cluster"  
+#   value       = aws_dsql_cluster.main.cluster_identifier
+# }
 
 output "vpc_endpoint_service_name" {
   description = "VPC endpoint service name for the Aurora DSQL cluster"

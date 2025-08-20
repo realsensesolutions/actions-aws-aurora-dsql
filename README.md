@@ -45,7 +45,6 @@ Aurora DSQL is available in select AWS regions. Verify that your target region s
 | Name | Description |
 |------|-------------|
 | `cluster_arn` | ARN of the Aurora DSQL cluster |
-| `cluster_id` | ID of the Aurora DSQL cluster |
 | `cluster_endpoint` | Endpoint of the Aurora DSQL cluster (via VPC endpoint DNS name) |
 | `vpc_endpoint_service_name` | VPC endpoint service name for the Aurora DSQL cluster |
 | `vpc_endpoint_id` | ID of the VPC endpoint (if created) |
@@ -132,6 +131,7 @@ aws dsql generate-db-connect-admin-auth-token \
 - Authentication tokens are short-lived and must be regenerated regularly
 - The service is currently available in select AWS regions
 - Pricing is based on read/write operations and storage usage
+- **Resource Attribute Discovery**: Aurora DSQL is a new service and some Terraform attributes may need verification. The action includes debug output to help identify available attributes.
 
 ## Limitations
 
@@ -149,6 +149,24 @@ This action creates the following AWS resources:
 3. **aws_vpc_endpoint** - VPC endpoint for private access (optional)
 4. **aws_security_group** - Security group for VPC endpoint (optional)
 5. **aws_iam_role** - IAM role for database access (optional)
+
+## Troubleshooting
+
+### Attribute Discovery
+
+If you encounter "Unsupported attribute" errors, the action includes debug output that shows available attributes for the Aurora DSQL cluster resource:
+
+1. Look for the "=== Terraform State Debug ===" section in the GitHub Actions logs
+2. This will show all available attributes for the `aws_dsql_cluster` resource
+3. Update the `outputs.tf` file with the correct attribute names
+4. Some common attributes that work: `arn`, `vpc_endpoint_service_name`
+5. Some attributes that may not exist: `id`, `endpoint`, `cluster_identifier`
+
+### Common Issues
+
+- **Region availability**: Ensure Aurora DSQL is available in your target region
+- **IAM permissions**: Verify all required permissions are granted
+- **VPC configuration**: Ensure VPC and subnets exist and are accessible
 
 ## License
 

@@ -59,9 +59,7 @@ outputs:
   security_group_id:
     description: 'ID of the security group for VPC endpoint'
     value: ${{ steps.create-dsql.outputs.security_group_id }}
-  cluster_id:
-    description: 'ID of the Aurora DSQL cluster'
-    value: ${{ steps.create-dsql.outputs.cluster_id }}
+# cluster_id output temporarily removed - attribute name needs verification
   vpc_endpoint_service_name:
     description: 'VPC endpoint service name for the Aurora DSQL cluster'
     value: ${{ steps.create-dsql.outputs.vpc_endpoint_service_name }}
@@ -133,9 +131,12 @@ runs:
         terraform plan -lock-timeout=5m
         terraform apply -auto-approve -lock-timeout=5m
         
+        # Debug: Show available attributes
+        echo "=== Terraform State Debug ==="
+        terraform show -json | jq '.values.root_module.resources[] | select(.type == "aws_dsql_cluster") | .values' || echo "Debug failed"
+        
         # Get outputs
         CLUSTER_ARN=$(terraform output -raw cluster_arn)
-        CLUSTER_ID=$(terraform output -raw cluster_id)
         CLUSTER_ENDPOINT=$(terraform output -raw cluster_endpoint || echo "")
         VPC_ENDPOINT_SERVICE_NAME=$(terraform output -raw vpc_endpoint_service_name)
         VPC_ENDPOINT_ID=$(terraform output -raw vpc_endpoint_id || echo "")
@@ -145,7 +146,6 @@ runs:
         SECURITY_GROUP_ID=$(terraform output -raw security_group_id || echo "")
         
         echo "cluster_arn=$CLUSTER_ARN" >> $GITHUB_OUTPUT
-        echo "cluster_id=$CLUSTER_ID" >> $GITHUB_OUTPUT
         echo "cluster_endpoint=$CLUSTER_ENDPOINT" >> $GITHUB_OUTPUT
         echo "vpc_endpoint_service_name=$VPC_ENDPOINT_SERVICE_NAME" >> $GITHUB_OUTPUT
         echo "vpc_endpoint_id=$VPC_ENDPOINT_ID" >> $GITHUB_OUTPUT
