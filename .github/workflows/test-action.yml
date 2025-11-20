@@ -1,0 +1,119 @@
+name: Test Action - Create DSQL Cluster
+
+on:
+  workflow_dispatch:  # Manual trigger for testing
+    inputs:
+      cluster_name:
+        description: 'DSQL Cluster Name'
+        required: true
+        default: 'test-dsql-cluster'
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'apply'
+        type: choice
+        options:
+          - apply
+          - plan
+          - destroy
+
+# ============================================
+# ENVIRONMENT VARIABLES
+# These are required by the action.yml
+# ============================================
+env:
+  # Cluster configuration
+  CLUSTER_NAME: ${{ github.event.inputs.cluster_name || 'test-dsql-cluster' }}
+  
+  # AWS Configuration
+  AWS_REGION: us-east-1
+  
+  # Terraform Backend (set by backend setup action, but you can override if needed)
+  # TF_BACKEND_s3: your-terraform-state-bucket
+  # TF_BACKEND_dynamodb: your-terraform-lock-table
+
+jobs:
+  test-create-dsql:
+    permissions:
+      id-token: write   # Required for AWS OIDC authentication
+      contents: read
+    
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      # Step 2: Configure AWS credentials
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: github-actions-${{ github.actor }}
+      
+      # Step 3: Setup Terraform Backend
+      # This action creates the S3 bucket and DynamoDB table
+      # and sets TF_BACKEND_s3 and TF_BACKEND_dynamodb env vars
+      - name: Setup Terraform Backend
+        uses: alonch/actions-aws-backend-setup@main
+        with:
+          instance: ${{ env.CLUSTER_NAME }}
+      
+      # Step 4: Call YOUR action.yml
+      # This is where you test your local action
+      - name: Test Aurora DSQL Action
+        uses: ./  # This calls the action.yml in the root of your repo
+        id: dsql
+        with:
+          # ==========================================
+          # REQUIRED INPUT
+          # ==========================================
+          name: ${{ env.CLUSTER_NAME }}
+          
+          # ==========================================
+          # ACTION CONTROL
+          # ==========================================
+          action: ${{ github.event.inputs.action }}
+          
+          # ==========================================
+          # OPTIONAL INPUTS - Configure as needed
+          # ==========================================
+          deletion_protection_enabled: 'false'
+          
+          # Network settings
+          enable_vpc_endpoint: 'true'
+          # vpc_id: 'vpc-xxxxx'                    # Uncomment to specify VPC
+          # subnet_ids: 'subnet-aaa,subnet-bbb'    # Uncomment to specify subnets
+          
+          # Security settings
+          enable_kms_encryption: 'true'
+          create_iam_role: 'true'
+          allowed_cidr_blocks: '10.0.0.0/8,172.16.0.0/12,192.168.0.0/16'
+      
+      # Step 5: Display outputs
+      - name: Display Cluster Information
+        if: github.event.inputs.action != 'destroy'
+        run: |
+          echo "=========================================="
+          echo "✅ DSQL Cluster Test Results"
+          echo "=========================================="
+          echo ""
+          echo "📊 Cluster Details:"
+          echo "  Name: ${{ env.CLUSTER_NAME }}"
+          echo "  ARN: ${{ steps.dsql.outputs.cluster_arn }}"
+          echo "  Endpoint: ${{ steps.dsql.outputs.cluster_endpoint }}"
+          echo ""
+          echo "🔒 Security:"
+          echo "  KMS Key: ${{ steps.dsql.outputs.kms_key_arn }}"
+          echo "  IAM Role: ${{ steps.dsql.outputs.iam_role_arn }}"
+          echo "  Security Group: ${{ steps.dsql.outputs.security_group_id }}"
+          echo ""
+          echo "🌐 Networking:"
+          echo "  VPC Endpoint Service: ${{ steps.dsql.outputs.vpc_endpoint_service_name }}"
+          echo "  VPC Endpoint ID: ${{ steps.dsql.outputs.vpc_endpoint_id }}"
+          echo "  VPC Endpoint DNS: ${{ steps.dsql.outputs.vpc_endpoint_dns_name }}"
+          echo ""
+          echo "=========================================="
+
