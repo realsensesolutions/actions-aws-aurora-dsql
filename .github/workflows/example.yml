@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:  # Allows manual trigger from GitHub Actions tab
 env: 
   dsql_cluster_name: aurora-dsql-demo
 
