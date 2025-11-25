@@ -5,7 +5,7 @@ output "cluster_arn" {
 
 output "cluster_endpoint" {
   description = "Public endpoint of the Aurora DSQL cluster"
-  value       = "${aws_dsql_cluster.main.id}.dsql.${data.aws_region.current.name}.on.aws"
+  value       = "${regex("[^/]+$", aws_dsql_cluster.main.arn)}.dsql.${data.aws_region.current.name}.on.aws"
 }
 
 output "vpc_endpoint_id" {
