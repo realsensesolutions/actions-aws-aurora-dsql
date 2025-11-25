@@ -121,41 +121,51 @@ runs:
         TF_VAR_create_iam_role: ${{ inputs.create_iam_role }}
         TF_VAR_allowed_cidr_blocks: ${{ inputs.allowed_cidr_blocks }}
 
+    - name: Import Existing VPC Endpoint
+      if: inputs.action == 'apply' && inputs.enable_vpc_endpoint == 'true'
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      continue-on-error: true
+      run: |
+        # Import existing VPC endpoint to prevent "private-dns-enabled conflict" error
+        ENDPOINT_IN_STATE=$(terraform state list 2>/dev/null | grep "aws_vpc_endpoint.dsql" || echo "")
+        if [ -n "$ENDPOINT_IN_STATE" ]; then
+          echo "VPC endpoint already in state"
+          exit 0
+        fi
+        
+        VPC_ID="${TF_VAR_vpc_id:-$(aws ec2 describe-vpcs --filters Name=isDefault,Values=true --query Vpcs[0].VpcId --output text 2>/dev/null)}"
+        [ -z "$VPC_ID" ] && exit 0
+        
+        EXISTING=$(aws ec2 describe-vpc-endpoints \
+          --filters "Name=vpc-id,Values=$VPC_ID" "Name=service-name,Values=*dsql*" \
+          --query "VpcEndpoints[?PrivateDnsEnabled==\`true\`].VpcEndpointId" --output text 2>/dev/null || echo "")
+        
+        if [ -n "$EXISTING" ] && [ "$EXISTING" != "None" ]; then
+          echo "Importing existing VPC endpoint: $EXISTING"
+          terraform import 'aws_vpc_endpoint.dsql[0]' "$EXISTING" || true
+        fi
+      env:
+        TF_VAR_vpc_id: ${{ inputs.vpc_id }}
+
     - name: Create Aurora DSQL Cluster
       id: create-dsql
       if: inputs.action == 'apply'
       shell: bash
       working-directory: ${{ github.action_path }}
       run: |
-        # Plan and Apply
         terraform plan -lock-timeout=5m
         terraform apply -auto-approve -lock-timeout=5m
         
-        # Debug: Show available attributes
-        echo "=== Terraform State Debug ==="
-        terraform show -json | jq '.values.root_module.resources[] | select(.type == "aws_dsql_cluster") | .values' || echo "Debug failed"
-        
         # Get outputs
-        CLUSTER_ARN=$(terraform output -raw cluster_arn)
-        CLUSTER_ENDPOINT=$(terraform output -raw cluster_endpoint || echo "")
-        VPC_ENDPOINT_SERVICE_NAME=$(terraform output -raw vpc_endpoint_service_name)
-        VPC_ENDPOINT_ID=$(terraform output -raw vpc_endpoint_id || echo "")
-        VPC_ENDPOINT_DNS_NAME=$(terraform output -raw vpc_endpoint_dns_name || echo "")
-        KMS_KEY_ARN=$(terraform output -raw kms_key_arn || echo "")
-        IAM_ROLE_ARN=$(terraform output -raw iam_role_arn || echo "")
-        SECURITY_GROUP_ID=$(terraform output -raw security_group_id || echo "")
-        
-        echo "cluster_arn=$CLUSTER_ARN" >> $GITHUB_OUTPUT
-        echo "cluster_endpoint=$CLUSTER_ENDPOINT" >> $GITHUB_OUTPUT
-        echo "vpc_endpoint_service_name=$VPC_ENDPOINT_SERVICE_NAME" >> $GITHUB_OUTPUT
-        echo "vpc_endpoint_id=$VPC_ENDPOINT_ID" >> $GITHUB_OUTPUT
-        echo "vpc_endpoint_dns_name=$VPC_ENDPOINT_DNS_NAME" >> $GITHUB_OUTPUT
-        echo "kms_key_arn=$KMS_KEY_ARN" >> $GITHUB_OUTPUT
-        echo "iam_role_arn=$IAM_ROLE_ARN" >> $GITHUB_OUTPUT
-        echo "security_group_id=$SECURITY_GROUP_ID" >> $GITHUB_OUTPUT
-        
-        echo "Created Aurora DSQL cluster: $CLUSTER_ARN"
-        echo "Cluster endpoint: $CLUSTER_ENDPOINT"
+        echo "cluster_arn=$(terraform output -raw cluster_arn)" >> $GITHUB_OUTPUT
+        echo "cluster_endpoint=$(terraform output -raw cluster_endpoint || echo '')" >> $GITHUB_OUTPUT
+        echo "vpc_endpoint_service_name=$(terraform output -raw vpc_endpoint_service_name)" >> $GITHUB_OUTPUT
+        echo "vpc_endpoint_id=$(terraform output -raw vpc_endpoint_id || echo '')" >> $GITHUB_OUTPUT
+        echo "vpc_endpoint_dns_name=$(terraform output -raw vpc_endpoint_dns_name || echo '')" >> $GITHUB_OUTPUT
+        echo "kms_key_arn=$(terraform output -raw kms_key_arn || echo '')" >> $GITHUB_OUTPUT
+        echo "iam_role_arn=$(terraform output -raw iam_role_arn || echo '')" >> $GITHUB_OUTPUT
+        echo "security_group_id=$(terraform output -raw security_group_id || echo '')" >> $GITHUB_OUTPUT
       env:
         TF_VAR_cluster_name: ${{ inputs.name }}
         TF_VAR_deletion_protection_enabled: ${{ inputs.deletion_protection_enabled }}
