@@ -4,8 +4,8 @@ output "cluster_arn" {
 }
 
 output "cluster_endpoint" {
-  description = "Endpoint of the Aurora DSQL cluster (via VPC endpoint)"
-  value       = var.enable_vpc_endpoint ? aws_vpc_endpoint.dsql[0].dns_entry[0].dns_name : null
+  description = "Public endpoint of the Aurora DSQL cluster"
+  value       = aws_dsql_cluster.main.endpoint
 }
 
 output "vpc_endpoint_id" {
