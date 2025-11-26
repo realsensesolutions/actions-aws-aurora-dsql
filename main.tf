@@ -14,18 +14,41 @@ data "aws_vpc" "default" {
 }
 
 locals {
-  vpc_id           = var.vpc_id != "" ? var.vpc_id : data.aws_vpc.default[0].id
-  vpc_cidr_block   = var.vpc_id != "" ? data.aws_vpc.main[0].cidr_block : data.aws_vpc.default[0].cidr_block
-  subnet_ids_list  = var.subnet_ids != "" ? split(",", var.subnet_ids) : data.aws_subnets.selected.ids
-  allowed_cidrs    = split(",", var.allowed_cidr_blocks)
+  vpc_id         = var.vpc_id != "" ? var.vpc_id : data.aws_vpc.default[0].id
+  vpc_cidr_block = var.vpc_id != "" ? data.aws_vpc.main[0].cidr_block : data.aws_vpc.default[0].cidr_block
+  allowed_cidrs  = split(",", var.allowed_cidr_blocks)
+
+  # When subnet_ids is provided by user, use those directly
+  # When not provided, filter to get unique subnets (one per AZ) to avoid DuplicateSubnetsInSameZone error
+  user_provided_subnets = var.subnet_ids != "" ? split(",", var.subnet_ids) : []
+
+  # Create a map of AZ -> list of subnet IDs, then take first subnet from each AZ
+  az_to_subnets = {
+    for subnet in data.aws_subnet.details :
+    subnet.availability_zone => subnet.id...
+  }
+
+  # Get one subnet per availability zone (first found in each AZ)
+  unique_subnets_per_az = [
+    for az, subnet_ids in local.az_to_subnets : subnet_ids[0]
+  ]
+
+  # Final subnet list: use user-provided if available, otherwise use unique per AZ
+  subnet_ids_list = length(local.user_provided_subnets) > 0 ? local.user_provided_subnets : local.unique_subnets_per_az
 }
 
-# Get subnets if not provided
+# Get all subnets in the VPC
 data "aws_subnets" "selected" {
   filter {
     name   = "vpc-id"
     values = [local.vpc_id]
   }
+}
+
+# Get details of each subnet to determine its availability zone
+data "aws_subnet" "details" {
+  for_each = toset(data.aws_subnets.selected.ids)
+  id       = each.value
 }
 
 # KMS key for DSQL encryption

@@ -34,7 +34,7 @@ Aurora DSQL is available in select AWS regions. Verify that your target region s
 | `action` | Desired outcome: apply, plan or destroy | `false` | `apply` |
 | `deletion_protection_enabled` | Enable deletion protection for the DSQL cluster | `false` | `true` |
 | `vpc_id` | VPC ID where the VPC endpoint will be created. If not provided, uses default VPC | `false` | - |
-| `subnet_ids` | Comma-separated list of subnet IDs for the VPC endpoint. If not provided, uses all subnets in the VPC | `false` | - |
+| `subnet_ids` | Comma-separated list of subnet IDs for the VPC endpoint. If not provided, automatically selects one subnet per availability zone | `false` | - |
 | `enable_vpc_endpoint` | Enable VPC endpoint for private connectivity | `false` | `true` |
 | `enable_kms_encryption` | Enable KMS encryption for the DSQL cluster | `false` | `true` |
 | `create_iam_role` | Create IAM role for DSQL cluster access | `false` | `true` |
@@ -167,6 +167,15 @@ If you encounter "Unsupported attribute" errors, the action includes debug outpu
 - **Region availability**: Ensure Aurora DSQL is available in your target region
 - **IAM permissions**: Verify all required permissions are granted
 - **VPC configuration**: Ensure VPC and subnets exist and are accessible
+
+### DuplicateSubnetsInSameZone Error (Resolved)
+
+If you previously encountered this error:
+```
+DuplicateSubnetsInSameZone: Found another VPC endpoint subnet in the availability zone...
+```
+
+This issue has been **automatically resolved**. When `subnet_ids` is not provided, the action now automatically selects **one subnet per availability zone** to comply with AWS VPC endpoint requirements. You no longer need to manually specify `subnet_ids` unless you have specific subnet preferences
 
 ## License
 

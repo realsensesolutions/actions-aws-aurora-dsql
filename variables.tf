@@ -21,7 +21,7 @@ variable "vpc_id" {
 }
 
 variable "subnet_ids" {
-  description = "Comma-separated list of subnet IDs for the VPC endpoint. If empty, uses all subnets in the VPC"
+  description = "Comma-separated list of subnet IDs for the VPC endpoint. If empty, automatically selects one subnet per availability zone to avoid DuplicateSubnetsInSameZone errors"
   type        = string
   default     = ""
 }
