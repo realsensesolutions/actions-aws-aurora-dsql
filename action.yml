@@ -137,13 +137,14 @@ runs:
         VPC_ID="${TF_VAR_vpc_id:-$(aws ec2 describe-vpcs --filters Name=isDefault,Values=true --query Vpcs[0].VpcId --output text 2>/dev/null)}"
         [ -z "$VPC_ID" ] && exit 0
         
+        # Only import VPC endpoint if it belongs to THIS cluster (by tag name)
         EXISTING=$(aws ec2 describe-vpc-endpoints \
-          --filters "Name=vpc-id,Values=$VPC_ID" "Name=service-name,Values=*dsql*" \
+          --filters "Name=vpc-id,Values=$VPC_ID" "Name=tag:Name,Values=${{ inputs.name }}-dsql-vpce" \
           --query "VpcEndpoints[?PrivateDnsEnabled==\`true\`].VpcEndpointId" --output text 2>/dev/null || echo "")
         
         if [ -n "$EXISTING" ] && [ "$EXISTING" != "None" ]; then
           echo "Importing existing VPC endpoint: $EXISTING"
-          terraform import 'aws_vpc_endpoint.dsql[0]' "$EXISTING" || true
+          terraform import -lock-timeout=5m 'aws_vpc_endpoint.dsql[0]' "$EXISTING" || true
         fi
       env:
         TF_VAR_vpc_id: ${{ inputs.vpc_id }}
