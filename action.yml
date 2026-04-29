@@ -77,6 +77,7 @@ runs:
         terraform init \
           -backend-config="bucket=${{ env.TF_BACKEND_s3 }}" \
           -backend-config="key=actions-aws-aurora-dsql/${{ inputs.name }}" \
+          -backend-config="use_lockfile=true" \
           -backend-config="dynamodb_table=${{ env.TF_BACKEND_dynamodb }}"
       shell: bash
       env:
